@@ -12,6 +12,8 @@ void setup() {
   //Make sure the COM port is correct
   myPort = new Serial(this, "/dev/cu.usbmodem14601", 9600);
   myPort.bufferUntil('\n');
+  dataList.add("0,0");
+  dataList.add("0,0");
   readData("Desktop/Batik_bot_final/test.csv");
 }
 
@@ -20,7 +22,7 @@ void draw() {
     myPort.write(dataList.get(counter));
     counter++;
   }
-  delay(500);
+  delay(500);  //this is necessary!!
 
   if (myPort.available() > 0) {
     val = myPort.readStringUntil('\n');

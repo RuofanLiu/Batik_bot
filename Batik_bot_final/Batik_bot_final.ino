@@ -7,6 +7,11 @@
 /* This program was created by ScottC on 8/5/2012 to receive serial
   signals from a computer to turn on/off 1-9 LEDs */
 
+//----------------------other variables--------------------//
+int maxScale = 0; //this variable is used to determine the scale of the painting on the turning table.
+String val;
+//----------------------other variables--------------------//
+
 //-----------------for Temperature sensor------------------//
 const float voltageRef = 5.000; //Set reference voltage,you need test your IOREF voltage.
 //const float voltageRef = 3.300;
@@ -31,8 +36,6 @@ Adafruit_StepperMotor *syringe = AFMS_level2.getStepper(200, 1);
 Adafruit_StepperMotor *myHeater = AFMS_level2.getStepper(200, 1); //for the heating resistor
 //------------------for stepper motor---------------------//
 
-
-String byteRead;  //this is a variable that store the string read from Processing
 
 /* Create wrapper functions for use with the AccelStepper Library
    Can change to MICROSTEP for more accuracy, or DOUBLE for more torque
@@ -61,7 +64,7 @@ void backwardstepE()  {
 }
 // Create Astepper and Rstepper objects from AccelStepper library
 AccelStepper Astepper(forwardstepA, backwardstepA); // use functions to step  for turning table
-AccelStepper Rstepper(forwardstepR, backwardstepR); // use functions to step  for leadscrew 
+AccelStepper Rstepper(forwardstepR, backwardstepR); // use functions to step  for leadscrew
 AccelStepper Estepper(forwardstepE, backwardstepE); // use functions to step  for syringe
 
 
@@ -86,10 +89,19 @@ void applyWax() {
   }
   Serial.println("Waiting for user input to move to next position!");
   //TO DO: send ACK to Processing code and wait until next value is received
+  //DO NOT WORRY ABOUT TODO IN THIS SCOPE FOR NOW
 }
 
+/*
+ * Initialize all the ports
+ */
 void setup() {
   Serial.begin(9600);
+  //printf("String %s\n", ByteRead);
+  while (Serial.available() <= 0) {
+    Serial.println("ACK\n");   // send COntact to initialize the data transimission
+    delay(500);
+  }
   //------------------for stepper motor---------------------//
   AFMS.begin(1600);  // OR with a different frequency, say 1KHz
   AFMS_level2.begin(1600);
@@ -98,7 +110,7 @@ void setup() {
   leadScrew->setSpeed(200);
   syringe->setSpeed(50);
 
-//------------------test only------------------//
+  //------------------test only------------------//
   Rstepper.setMaxSpeed(200);
   Rstepper.moveTo(1500);
   //------------------test only------------------//
@@ -108,18 +120,23 @@ void setup() {
 }
 
 void loop() {
-
-
-  /* check if data has been sent from the computer: */
-  if (Serial.available()) {
-
-    /* read the most recent byte */
-    byteRead = Serial.readStringUntil('\n');
-    Serial.println(byteRead);
+  /*
+   * Serial Communication
+   * The basic idea is, since the Arduino Uno memory is too small to store all the data pointes, Processing is used to send one set of data at a time
+   * When a set of data is received, send ACK to Processing so that the next data will be sent
+   */
+  if (Serial.available() > 0) { // If data is available to read,
+    val = Serial.readStringUntil('\n'); // read the csv value sent from Processing
+    if (val != NULL) {
+      Serial.println("ACK\n");
+    }
+    if (val != "ACK") {     //THIS IF STATEMENT IS FOR TEST ONLY
+      Serial.println(val);
+    }
   }
 
-  Rstepper.run();  //this works, first accelerates and decellerates
-  //leadScrew->step(500, BACKWARD, DOUBLE);
+  //Rstepper.run();  //this works, first accelerates and decellerates
+
 
   //TO DO: now serial communication worked, change the Processing code and check the csv file next
 }

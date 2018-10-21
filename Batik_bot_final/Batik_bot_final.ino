@@ -8,7 +8,8 @@
   signals from a computer to turn on/off 1-9 LEDs */
 
 //----------------------other variables--------------------//
-int maxScale = 0; //this variable is used to determine the scale of the painting on the turning table.
+int isFirstValue = 0;
+int maxScale; //this variable is used to determine the scale of the painting on the turning table.
 String val;
 //----------------------other variables--------------------//
 
@@ -87,6 +88,7 @@ void applyWax() {
   while (Estepper.currentPosition() != Estepper.targetPosition()) {
     Estepper.runSpeedToPosition();
   }
+  
   Serial.println("Waiting for user input to move to next position!");
   //TO DO: send ACK to Processing code and wait until next value is received
   //DO NOT WORRY ABOUT TODO IN THIS SCOPE FOR NOW
@@ -97,11 +99,12 @@ void applyWax() {
  */
 void setup() {
   Serial.begin(9600);
-  //printf("String %s\n", ByteRead);
   while (Serial.available() <= 0) {
     Serial.println("ACK\n");   // send COntact to initialize the data transimission
-    delay(500);
+    delay(1000);
   }
+  val = Serial.readStringUntil('\n');
+  Serial.println("ACK\n");
   //------------------for stepper motor---------------------//
   AFMS.begin(1600);  // OR with a different frequency, say 1KHz
   AFMS_level2.begin(1600);
@@ -117,6 +120,7 @@ void setup() {
 
   myHeater->setSpeed(50);
   //------------------for stepper motor---------------------//
+  maxScale = val.toInt();
 }
 
 void loop() {
@@ -129,14 +133,13 @@ void loop() {
     val = Serial.readStringUntil('\n'); // read the csv value sent from Processing
     if (val != NULL) {
       Serial.println("ACK\n");
-    }
-    if (val != "ACK") {     //THIS IF STATEMENT IS FOR TEST ONLY
-      Serial.println(val);
-    }
+    }     
+    Serial.println(val);  //THIS LINE IS FOR TEST ONLY
   }
 
+  
   //Rstepper.run();  //this works, first accelerates and decellerates
 
 
-  //TO DO: now serial communication worked, change the Processing code and check the csv file next
+  //TO DO: now the first maxScale value has been successfully read, split the string next
 }

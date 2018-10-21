@@ -104,6 +104,7 @@ void setup() {
     delay(1000);
   }
   val = Serial.readStringUntil('\n');
+  delay(100); //this is necessary, as the arduino CPU is too slow to read data
   Serial.println("ACK\n");
   //------------------for stepper motor---------------------//
   AFMS.begin(1600);  // OR with a different frequency, say 1KHz
@@ -124,17 +125,28 @@ void setup() {
 }
 
 void loop() {
+  double radii = 0;
+  int angle = 0;
   /*
    * Serial Communication
    * The basic idea is, since the Arduino Uno memory is too small to store all the data pointes, Processing is used to send one set of data at a time
    * When a set of data is received, send ACK to Processing so that the next data will be sent
    */
   if (Serial.available() > 0) { // If data is available to read,
-    val = Serial.readStringUntil('\n'); // read the csv value sent from Processing
-    if (val != NULL) {
-      Serial.println("ACK\n");
-    }     
-    Serial.println(val);  //THIS LINE IS FOR TEST ONLY
+    //val = Serial.readStringUntil('\n'); // read the csv value sent from Processing
+    //if (val != NULL) {
+    //  Serial.println("ACK\n");
+    //}
+    radii = Serial.readStringUntil(',').toDouble();
+    angle = Serial.readStringUntil('\n').toInt();
+    delay(100);   //this is necessary FOR NOW  
+    Serial.print("radii: ");
+    Serial.println(radii);  //THIS LINE IS FOR TEST ONLY
+    Serial.print("angle: ");
+    Serial.println(angle);
+    Serial.print("maxScale: ");
+    Serial.println(maxScale);
+    Serial.println("ACK\n");
   }
 
   

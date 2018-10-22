@@ -110,6 +110,9 @@ void initialize() {
     Astepper.move(10);
     Astepper.run();
   }
+  /*
+   * since the US1881 hall sensor is blocked, move one step back to re-set its value to low
+   */
   while(hallStateTT == HIGH) {
     hallStateTT = digitalRead(2);
     Astepper.move(1);

@@ -13,6 +13,23 @@ int maxScale; //this variable is used to determine the scale of the painting on 
 String val;
 //----------------------other variables--------------------//
 
+
+
+//-------------------for Hall effect sensor----------------//
+const int hallTurningTable = 2;
+const int hallLeadScrew1 = 3;
+const int hallLeadScrew2 = 4;
+const int hallLSyringe = 5;
+int hallStateTT = 0;
+int hallStateLS1 = 0;
+int hallStateLS2 = 0;
+int hallStateS = 0;
+
+//-------------------for Hall effect sensor----------------//
+
+
+
+
 //-----------------for Temperature sensor------------------//
 const float voltageRef = 5.000; //Set reference voltage,you need test your IOREF voltage.
 //const float voltageRef = 3.300;
@@ -30,13 +47,14 @@ Adafruit_MotorShield AFMS_level2 = Adafruit_MotorShield(0x61);
 
 // Connect a stepper motor with 200 steps per revolution (1.8 degree)
 // to motor port #2 (M3 and M4), port #1 is M1 and M2
-Adafruit_StepperMotor *turningTable = AFMS.getStepper(200, 1);
-Adafruit_StepperMotor *leadScrew = AFMS.getStepper(200, 2);
+Adafruit_StepperMotor *turningTable = AFMS.getStepper(200, 2);
+Adafruit_StepperMotor *leadScrew = AFMS.getStepper(200, 1);
 Adafruit_StepperMotor *syringe = AFMS_level2.getStepper(200, 1);
 
 Adafruit_StepperMotor *myHeater = AFMS_level2.getStepper(200, 1); //for the heating resistor
 //------------------for stepper motor---------------------//
-
+// Reset function for program restart in case of failure
+void(* resetFunc) (void) = 0;//declare reset function at address 0
 
 /* Create wrapper functions for use with the AccelStepper Library
    Can change to MICROSTEP for more accuracy, or DOUBLE for more torque
@@ -77,6 +95,30 @@ int readTemp() {
 }
 
 /**
+   This function initialize the position of the turning table and the leadscrew and syringe
+   should be called in setup()
+*/
+void initialize() {
+  /*
+     first check the current position of the turning table.
+     If it is not at the initial position, continue turning
+  */
+  pinMode(hallTurningTable, INPUT);
+  Astepper.setMaxSpeed(2000);
+  while (hallStateTT == LOW) {
+    hallStateTT = digitalRead(2);
+    Astepper.move(10);
+    Astepper.run();
+  }
+  while(hallStateTT == HIGH) {
+    hallStateTT = digitalRead(2);
+    Astepper.move(1);
+    Astepper.run();
+  }
+}
+
+
+/**
    This function controls the top stepper motor to apply wax
 */
 void applyWax() {
@@ -88,15 +130,15 @@ void applyWax() {
   while (Estepper.currentPosition() != Estepper.targetPosition()) {
     Estepper.runSpeedToPosition();
   }
-  
+
   Serial.println("Waiting for user input to move to next position!");
   //TO DO: send ACK to Processing code and wait until next value is received
   //DO NOT WORRY ABOUT TODO IN THIS SCOPE FOR NOW
 }
 
 /*
- * Initialize all the ports
- */
+   Initialize all the ports
+*/
 void setup() {
   Serial.begin(9600);
   while (Serial.available() <= 0) {
@@ -107,50 +149,44 @@ void setup() {
   delay(100); //this is necessary, as the arduino CPU is too slow to read data
   Serial.println("ACK\n");
   //------------------for stepper motor---------------------//
-  AFMS.begin(1600);  // OR with a different frequency, say 1KHz
+  AFMS.begin(1600);  // set the frequencey to 1.6k Hz
   AFMS_level2.begin(1600);
 
-  turningTable->setSpeed(50);  // 50 rpm
-  leadScrew->setSpeed(200);
-  syringe->setSpeed(50);
-
-  //------------------test only------------------//
-  Rstepper.setMaxSpeed(200);
-  Rstepper.moveTo(1500);
-  //------------------test only------------------//
-
-  myHeater->setSpeed(50);
+  //  //------------------test only------------------//
+  Rstepper.setMaxSpeed(2000);
+  Rstepper.moveTo(-1500);
+  //  //------------------test only------------------//
+  initialize();
+  //myHeater->setSpeed(50);
   //------------------for stepper motor---------------------//
-  maxScale = val.toInt();
+  //  maxScale = val.toInt();
 }
 
 void loop() {
   double radii = 0;
   int angle = 0;
   /*
-   * Serial Communication
-   * The basic idea is, since the Arduino Uno memory is too small to store all the data pointes, Processing is used to send one set of data at a time
-   * When a set of data is received, send ACK to Processing so that the next data will be sent
-   */
-  if (Serial.available() > 0) { // If data is available to read,
-    //val = Serial.readStringUntil('\n'); // read the csv value sent from Processing
-    //if (val != NULL) {
-    //  Serial.println("ACK\n");
-    //}
-    radii = Serial.readStringUntil(',').toDouble();
-    angle = Serial.readStringUntil('\n').toInt();
-    delay(100);   //this is necessary FOR NOW  
-    Serial.print("radii: ");
-    Serial.println(radii);  //THIS LINE IS FOR TEST ONLY
-    Serial.print("angle: ");
-    Serial.println(angle);
-    Serial.print("maxScale: ");
-    Serial.println(maxScale);
-    Serial.println("ACK\n");
-  }
-
+     Serial Communication
+     The basic idea is, since the Arduino Uno memory is too small to store all the data pointes, Processing is used to send one set of data at a time
+     When a set of data is received, send ACK to Processing so that the next data will be sent
+  */
+    if (Serial.available() > 0) { // If data is available to read,
+      radii = Serial.readStringUntil(',').toDouble();
+      angle = Serial.readStringUntil('\n').toInt();
   
+      Serial.print("radii: ");
+      Serial.println(radii);  //THIS LINE IS FOR TEST ONLY
+      Serial.print("angle: ");
+      Serial.println(angle);
+      Serial.print("maxScale: ");
+      Serial.println(maxScale);
+      delay(100);   //this is necessary FOR NOW
+      Serial.println("ACK\n");
+    }
+
+
   //Rstepper.run();  //this works, first accelerates and decellerates
+
 
 
   //TO DO: now the first maxScale value has been successfully read, split the string next

@@ -11,18 +11,19 @@
 int isFirstValue = 0;
 int maxScale; //this variable is used to determine the scale of the painting on the turning table.
 String val;
+int center = 0; //this variable stoers the number of steps needed for the syringe to reach the center of the turning table
 //----------------------other variables--------------------//
 
 
 
 //-------------------for Hall effect sensor----------------//
 const int hallTurningTable = 2;
-const int hallLeadScrew1 = 3;
-const int hallLeadScrew2 = 4;
+const int hallLeadScrewRight = 3;
+const int hallLeadScrewLeft = 4;
 const int hallLSyringe = 5;
 int hallStateTT = 0;
-int hallStateLS1 = 0;
-int hallStateLS2 = 0;
+int hallStateLSright = 0;
+int hallStateLSleft = 0;
 int hallStateS = 0;
 
 //-------------------for Hall effect sensor----------------//
@@ -36,6 +37,7 @@ const float voltageRef = 5.000; //Set reference voltage,you need test your IOREF
 int HighTemperaturePin = A0;  //Setting pin
 DFRobotHighTemperature PT100 = DFRobotHighTemperature(voltageRef); //Define an PT100 object
 //-----------------for Temperature sensor------------------//
+
 
 
 //------------------for stepper motor---------------------//
@@ -53,6 +55,8 @@ Adafruit_StepperMotor *syringe = AFMS_level2.getStepper(200, 1);
 
 Adafruit_StepperMotor *myHeater = AFMS_level2.getStepper(200, 1); //for the heating resistor
 //------------------for stepper motor---------------------//
+
+
 // Reset function for program restart in case of failure
 void(* resetFunc) (void) = 0;//declare reset function at address 0
 
@@ -95,19 +99,52 @@ int readTemp() {
 }
 
 /**
+ * This function initialize the position of the lead screw and determines the center of the turning table
+ * (this worked, but kinda buggy interms of the polar of the magnet issue (reset))
+ */
+void initializeScrew(){
+  int steps = 0;
+  int reachedRightmost = 0;
+  int reachedLeftmost = 0;
+  pinMode(hallLeadScrewRight, INPUT); //digit port 3
+  pinMode(hallLeadScrewLeft, INPUT);  //digit port 4
+  while(reachedRightmost == 0 && hallStateLSright == LOW){
+    hallStateLSright = digitalRead(hallLeadScrewRight);
+    Rstepper.setSpeed(200);
+    Rstepper.runSpeed();
+  }
+  while(reachedRightmost == 0 && hallStateLSright == HIGH){
+    hallStateLSright = digitalRead(hallLeadScrewRight);
+    Rstepper.setSpeed(200);
+    Rstepper.runSpeed();
+  }
+  reachedRightmost = 1;
+  delay(2000);
+  
+  while(reachedRightmost == 1 && hallStateLSleft == LOW){
+    hallStateLSleft = digitalRead(hallLeadScrewLeft);
+    Rstepper.setSpeed(-200);
+    Rstepper.runSpeed();
+  }
+
+  reachedLeftmost = 1;
+  //TO DO Oct 23: Calculate the step ran and determine the midpoint
+}
+
+/**
    This function initialize the position of the turning table and the leadscrew and syringe
    should be called in setup()
 */
-void initialize() {
+void initializeTable() {
   /*
      first check the current position of the turning table.
      If it is not at the initial position, continue turning
   */
   pinMode(hallTurningTable, INPUT);
-  Astepper.setMaxSpeed(2000);
+  
   while (hallStateTT == LOW) {
-    hallStateTT = digitalRead(2);
-    Astepper.move(10);
+    hallStateTT = digitalRead(hallTurningTable);
+    Astepper.setSpeed(100);
     Astepper.run();
   }
   /*
@@ -155,11 +192,8 @@ void setup() {
   AFMS.begin(1600);  // set the frequencey to 1.6k Hz
   AFMS_level2.begin(1600);
 
-  //  //------------------test only------------------//
-  Rstepper.setMaxSpeed(2000);
-  Rstepper.moveTo(-1500);
-  //  //------------------test only------------------//
-  initialize();
+  initializeTable();
+  initializeScrew();
   //myHeater->setSpeed(50);
   //------------------for stepper motor---------------------//
   //  maxScale = val.toInt();
@@ -190,7 +224,4 @@ void loop() {
 
   //Rstepper.run();  //this works, first accelerates and decellerates
 
-
-
-  //TO DO: now the first maxScale value has been successfully read, split the string next
 }

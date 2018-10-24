@@ -122,26 +122,19 @@ void initializeScrew() {
     Rstepper.setSpeed(200);
     Rstepper.runSpeed();
   }
-  while (reachedRightmost == 0 && hallStateLSright == HIGH) {
-    hallStateLSright = digitalRead(hallLeadScrewRight);
-    Rstepper.setSpeed(200);
-    Rstepper.runSpeed();
-  }
+  //manually set it to low
+  hallStateLSright = digitalRead(hallLeadScrewRight);
   reachedRightmost = 1;
   delay(2000);
 
-  if (hallStateLSright == HIGH) {
-    startTime = millis();
-  }
+  startTime = millis();
   while (reachedRightmost == 1 && hallStateLSleft == LOW) {
     hallStateLSleft = digitalRead(hallLeadScrewLeft);
     Rstepper.setSpeed(-200);
     Rstepper.runSpeed();
   }
-
-  if (hallStateLSleft == HIGH) {
-    endTime = millis();
-  }
+  endTime = millis();
+  hallStateLSleft = digitalRead(hallLeadScrewLeft);
   delay(5000);
   /*Calculate the number of steps needed*/
   //this doesnt work

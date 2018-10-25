@@ -11,9 +11,10 @@
 
 //----------------------other variables--------------------//
 int isFirstValue = 0;
-int maxScale; //this variable is used to determine the scale of the painting on the turning table.
+double maxScale; //this variable is used to determine the scale of the painting on the turning table.
 String val;
 unsigned long center = 0; //this variable stoers the number of steps needed for the syringe to reach the center of the turning table
+                          //THIS VALUE IS NEEDED FOR CALCULATING THE ACTUAL SCALE< DON"T CLEAR IT OUT
 //----------------------other variables--------------------//
 
 
@@ -27,7 +28,6 @@ int hallStateTT = 0;
 int hallStateLSright = 0;
 int hallStateLSleft = 0;
 int hallStateS = 0;
-
 //-------------------for Hall effect sensor----------------//
 
 
@@ -214,7 +214,7 @@ void setup() {
     delay(1000);
   }
   val = Serial.readStringUntil('\n');
-  delay(100); //this is necessary, as the arduino CPU is too slow to read data
+  delay(500); //this is necessary, as the arduino CPU is too slow to read data
   Serial.println("ACK\n");
 
   //------------------for stepper motor---------------------//
@@ -225,9 +225,8 @@ void setup() {
   initializeTable();
   delay(2000);
   initializeScrew();
-  //myHeater->setSpeed(50);
   //------------------for stepper motor---------------------//
-  //  maxScale = val.toInt();
+  maxScale = val.toDouble();
 }
 
 void loop() {

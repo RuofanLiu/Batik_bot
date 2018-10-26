@@ -218,10 +218,10 @@ void moveAndDraw(double radii, double angle) {
   Astepper.moveTo(stepToRotate);
   while (Astepper.currentPosition() != Astepper.targetPosition()) {
     if (stepToRotate < Astepper.currentPosition()) {
-      Astepper.setSpeed(-1 * 1);
+      Astepper.setSpeed(-1 * 5);
     }
     else {
-      Astepper.setSpeed(1);
+      Astepper.setSpeed(5);
     }
     
     Astepper.runSpeedToPosition();

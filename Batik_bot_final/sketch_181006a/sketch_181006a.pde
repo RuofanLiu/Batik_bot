@@ -17,7 +17,7 @@ void setup() {
   //Make sure the COM port is correct
   myPort = new Serial(this, "/dev/cu.usbmodem14601", 9600);
   myPort.bufferUntil('\n');
-  readData("Desktop/Arduino_shit/Batik_bot_final/test.csv");
+  readData("Desktop/Arduino_shit/Batik_bot_final/test2.csv");
 }
 
 void serialEvent(Serial myPort) {

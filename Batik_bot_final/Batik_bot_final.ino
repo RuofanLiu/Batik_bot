@@ -14,7 +14,7 @@ int isFirstValue = 0;
 double maxScale; //this variable is used to determine the scale of the painting on the turning table.
 String val;
 unsigned long center = 0; //this variable stoers the number of steps needed for the syringe to reach the center of the turning table
-                          //THIS VALUE IS NEEDED FOR CALCULATING THE ACTUAL SCALE< DON"T CLEAR IT OUT
+//THIS VALUE IS NEEDED FOR CALCULATING THE ACTUAL SCALE< DON"T CLEAR IT OUT
 //----------------------other variables--------------------//
 
 
@@ -102,7 +102,7 @@ int readTemp() {
 
 /**
    This function initialize the position of the lead screw and determines the center of the turning table
-   (this worked, but kinda buggy interms of the polar of the magnet issue (reset))
+   After this initialization, the syringe will be located to the center of the table with targetPosition = 0
 */
 void initializeScrew() {
   /*
@@ -122,6 +122,7 @@ void initializeScrew() {
     Rstepper.setSpeed(200);
     Rstepper.runSpeed();
   }
+
   //manually set it to low
   hallStateLSright = digitalRead(hallLeadScrewRight);
   reachedRightmost = 1;
@@ -135,7 +136,7 @@ void initializeScrew() {
   }
   endTime = millis();
   hallStateLSleft = digitalRead(hallLeadScrewLeft);
-  delay(5000);
+  delay(3000);
   /*Calculate the number of steps needed*/
   //this doesnt work
   duration = (endTime - startTime) / 1000;
@@ -157,6 +158,9 @@ void initializeScrew() {
     Rstepper.runSpeedToPosition();
   }
   reachedLeftmost = 1;
+  Rstepper.setCurrentPosition(0);
+  Serial.print("Current location: ");
+  Serial.println(Rstepper.currentPosition()); //supposed to print out 0
 }
 
 /**
@@ -172,7 +176,7 @@ void initializeTable() {
 
   while (hallStateTT == LOW) {
     hallStateTT = digitalRead(hallTurningTable);
-    Astepper.setSpeed(100);
+    Astepper.setSpeed(50);
     Astepper.run();
   }
   /*
@@ -183,9 +187,47 @@ void initializeTable() {
     Astepper.move(1);
     Astepper.run();
   }
+
+  Astepper.setCurrentPosition(0);
 }
 
+void moveAndDraw(double radii, double angle) {
+  double perUnit = center / maxScale;
+  int stepToMove = radii * perUnit;   //for lead screw
+  int stepToRotate = angle / 1.8;  //for turning table. The minimum steps the stepper motor can move is 1.8 degree
 
+  Serial.println("All initialized");
+
+  Serial.print("Step to move: "); Serial.println(stepToMove);
+  Rstepper.moveTo(stepToMove);
+  while (Rstepper.currentPosition() != Rstepper.targetPosition()) {
+    if (stepToMove < Rstepper.currentPosition()) {
+      Rstepper.setSpeed(-1 * 250);
+    }
+    else {
+      Rstepper.setSpeed(250);
+    }
+    
+    Rstepper.runSpeedToPosition();
+  }
+  delay(1000);
+  //TO DO Oct.26: THE CODE BELOW DOESN't WORK,
+  //POSSIBLE REASON: Astepper moving to fast
+  //CHANGE THE SPEED AND TEST AGAINs
+  Serial.print("Step to rotate: "); Serial.println(stepToRotate);
+  Astepper.moveTo(stepToRotate);
+  while (Astepper.currentPosition() != Astepper.targetPosition()) {
+    if (stepToRotate < Astepper.currentPosition()) {
+      Astepper.setSpeed(-1 * 1);
+    }
+    else {
+      Astepper.setSpeed(1);
+    }
+    
+    Astepper.runSpeedToPosition();
+  }
+  delay(5000); //this will be replaced by the applyWax() function
+}
 /**
    This function controls the top stepper motor to apply wax
 */
@@ -222,16 +264,18 @@ void setup() {
   AFMS_level2.begin(1600);
 
   Rstepper.setMaxSpeed(1000);
+  Astepper.setMaxSpeed(500);
   initializeTable();
   delay(2000);
   initializeScrew();
+  delay(5000);
   //------------------for stepper motor---------------------//
   maxScale = val.toDouble();
 }
 
 void loop() {
   double radii = 0;
-  int angle = 0;
+  double angle = 0;
   /*
      Serial Communication
      The basic idea is, since the Arduino Uno memory is too small to store all the data pointes, Processing is used to send one set of data at a time
@@ -239,7 +283,7 @@ void loop() {
   */
   if (Serial.available() > 0) { // If data is available to read,
     radii = Serial.readStringUntil(',').toDouble();
-    angle = Serial.readStringUntil('\n').toInt();
+    angle = Serial.readStringUntil('\n').toDouble();
 
     Serial.print("radii: ");
     Serial.println(radii);  //THIS LINE IS FOR TEST ONLY
@@ -247,6 +291,7 @@ void loop() {
     Serial.println(angle);
     Serial.print("maxScale: ");
     Serial.println(maxScale);
+    moveAndDraw(radii, angle);
     delay(100);   //this is necessary FOR NOW
     Serial.println("ACK\n");
   }

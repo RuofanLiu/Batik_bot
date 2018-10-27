@@ -161,6 +161,7 @@ void initializeScrew() {
   Rstepper.setCurrentPosition(0);
   Serial.print("Current location: ");
   Serial.println(Rstepper.currentPosition()); //supposed to print out 0
+  Rstepper.disableOutputs();
 }
 
 /**
@@ -176,7 +177,7 @@ void initializeTable() {
 
   while (hallStateTT == LOW) {
     hallStateTT = digitalRead(hallTurningTable);
-    Astepper.setSpeed(50);
+    Astepper.move(1);
     Astepper.run();
   }
   /*
@@ -187,11 +188,16 @@ void initializeTable() {
     Astepper.move(1);
     Astepper.run();
   }
-
   Astepper.setCurrentPosition(0);
+  Astepper.disableOutputs();
 }
 
+/**
+ * The following function enables the syringe to find and move to the coordinate read from the computer
+ */
 void moveAndDraw(double radii, double angle) {
+  Astepper.enableOutputs();
+  Rstepper.enableOutputs();
   double perUnit = center / maxScale;
   int stepToMove = radii * perUnit;   //for lead screw
   int stepToRotate = angle / 1.8;  //for turning table. The minimum steps the stepper motor can move is 1.8 degree
@@ -294,6 +300,13 @@ void loop() {
     moveAndDraw(radii, angle);
     delay(100);   //this is necessary FOR NOW
     Serial.println("ACK\n");
+    if(radii == NULL && angle == NULL){
+      Astepper.disableOutputs();
+      Rstepper.disableOutputs();
+      Estepper.disableOutputs();
+      delay(1000);  // Delay to allow above message to finish printing to monitor
+      resetFunc(); //call reset 
+    }
   }
 
 

@@ -18,6 +18,7 @@
 #include "utility/Adafruit_MS_PWMServoDriver.h"
 #include <avr/pgmspace.h>                     // Store data in flash (program) memory instead of SRAM
 
+#define meltingPoint 35
 //----------------------other variables--------------------//
 int isFirstValue = 0;
 double maxScale; //this variable is used to determine the scale of the painting on the turning table.
@@ -101,7 +102,7 @@ int readTemp() {
 
 //This function enables the heating pad to heat up to 65 degree Celsius
 void initializeHeater() {
-  while (currentTemperature < 35) {
+  while (currentTemperature < meltingPoint) {
     currentTemperature = readTemp();
     myHeater->setSpeed(50);
     myHeater->onestep(FORWARD, DOUBLE);
@@ -269,6 +270,7 @@ void applyWax() {
     Estepper.runSpeedToPosition();
   }
   //release the stepper motor to save the current
+  delay(1000);
   syringe -> release();
   waxApplied = 1;
 }
@@ -344,7 +346,10 @@ void loop() {
     else {
       radii = temp1.toDouble();
       angle = temp2.toDouble();
-      initializeHeater();
+      currentTemperature = readTemp();
+      if(currentTemperature < meltingPoint){
+        initializeHeater();
+      }
 
       //send information to Processing
       Serial.print("radii: ");
@@ -362,7 +367,7 @@ void loop() {
         applyWax();
         pointReached = 0;
       }
-      delay(100);   //this is necessary FOR NOW
+      delay(100);
       Serial.println("ACK\n");
     }
   }

@@ -1,13 +1,22 @@
+/**
+   This file is developed by Ruofan Liu on October 27, 2018
+   It controlls the batik bot to draw patterns. The user will design a pattern and download the coordinate csv file from
+   https://dev.csdt.rpi.edu/applications/56/run
+   This program will read the coordinate csv file and use wax to draw the exact same pattern on a cloth.
+   TO DO: 1. Use Hall-effect sensor to check the position of the syringe so that it wont push until the very end (Estepper)
+          2. implement the debug mode
+          3. use PID control for the temperature control
+   Many thanks to the following people:
+        David Goldschmidt, William Babbit, Ron Eglash, Yudan Liu, Abraham Ferraro, Yuxiang Meng, Chenyu Wu, Paween Pitimanaaree,
+        for giving me advice and helping me in designing the machine and moving it when needed
+
+*/
 #include<DFRobotHighTemperatureSensor.h>
 #include <AccelStepper.h>                     // V1.30, For running motors simultaneously
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
 #include "utility/Adafruit_MS_PWMServoDriver.h"
 #include <avr/pgmspace.h>                     // Store data in flash (program) memory instead of SRAM
-
-#define runningSpeed 200
-/* This program was created by ScottC on 8/5/2012 to receive serial
-  signals from a computer to turn on/off 1-9 LEDs */
 
 //----------------------other variables--------------------//
 int isFirstValue = 0;
@@ -90,18 +99,13 @@ int readTemp() {
   return PT100.readTemperature(HighTemperaturePin);
 }
 
-/**
-   This function enables the heating pad to heat up to 65 degree Celsius
-*/
+//This function enables the heating pad to heat up to 65 degree Celsius
 void initializeHeater() {
   while (currentTemperature < 35) {
     currentTemperature = readTemp();
-//    Serial.print("current Temperature");
-//    Serial.println(currentTemperature);
     myHeater->setSpeed(50);
     myHeater->onestep(FORWARD, DOUBLE);
   }
-  Serial.println("Overheat");
   myHeater -> release();
 }
 
@@ -112,6 +116,9 @@ void initializeHeater() {
 void initializeScrew() {
   /*
      Use timer to help calculating the center
+     move to rightmost first, and then start calculating time
+     after that, move to left most. use time and spped to calculate the center
+     Prerequisite: The Hall-effect sensor and the magnets are setup at proper places
   */
   unsigned long startTime = 0;
   unsigned long endTime = 0;
@@ -143,7 +150,6 @@ void initializeScrew() {
   hallStateLSleft = digitalRead(hallLeadScrewLeft);
   delay(3000);
   /*Calculate the number of steps needed*/
-  //this doesnt work
   duration = (endTime - startTime) / 1000;
   Serial.print("Start time: ");
   Serial.println(startTime);
@@ -201,7 +207,7 @@ void initializeTable() {
 }
 
 /**
-   The following function enables the syringe to find and move to the coordinate read from the computer
+   The following function enables the syringe to find and move to the designated coordinate read from the computer
 */
 void moveAndDraw(double radii, double angle) {
   pointReached = 0;
@@ -226,9 +232,7 @@ void moveAndDraw(double radii, double angle) {
     Rstepper.runSpeedToPosition();
   }
   delay(1000);
-  //TO DO Oct.26: THE CODE BELOW DOESN't WORK,
-  //POSSIBLE REASON: Astepper moving to fast
-  //CHANGE THE SPEED AND TEST AGAINs
+
   Serial.print("Step to rotate: "); Serial.println(stepToRotate);
   Astepper.moveTo(stepToRotate);
   while (Astepper.currentPosition() != Astepper.targetPosition()) {
@@ -241,17 +245,17 @@ void moveAndDraw(double radii, double angle) {
 
     Astepper.runSpeedToPosition();
   }
-  delay(1600);
+  delay(1500);
   pointReached = 1;
-  
+
   //release the stepper motor to save the current
-  leadScrew -> release(); 
+  leadScrew -> release();
   turningTable -> release();
 }
 
 
 /**
-   This function controls the top stepper motor to apply wax
+   This function controls the top stepper motor to push the syringe and apply wax
 */
 void applyWax() {
   waxApplied = 0;
@@ -274,6 +278,7 @@ void applyWax() {
 */
 void setup() {
   Serial.begin(9600);
+  Serial.println("Program start. Initializing...");
   while (Serial.available() <= 0) {
     Serial.println("ACK\n");   // send COntact to initialize the data transimission
     delay(1000);
@@ -286,20 +291,27 @@ void setup() {
   AFMS.begin(1600);  // set the frequencey to 1.6k Hz
   AFMS_level2.begin(1600);
 
-  currentTemperature = readTemp();
-  Serial.print("Current temperature is: ");
-  Serial.println(currentTemperature);
+  //read temperature
+  Serial.print("Heating up to melt the batik wax...");
+  //heat the heating pad up tp 60 degree to melt the wax
   initializeHeater();
+  currentTemperature = readTemp();
+  Serial.print("Heating up done, current temperature is: ");
+  Serial.println(currentTemperature);
   delay(1500);
+  //initialize three stepper motors
   Rstepper.setMaxSpeed(1000);
   Astepper.setMaxSpeed(500);
   Estepper.setMaxSpeed(250);
+
+  Serial.println("Initializing turning table...");
   initializeTable();
   delay(2000);
+  Serial.println("Initializing lead screw...");
   initializeScrew();
-  delay(5000);
-  //------------------for stepper motor---------------------//
+  delay(3000);
   maxScale = val.toDouble();
+  Serial.println("All Initialization done.");
 }
 
 void loop() {
@@ -315,7 +327,7 @@ void loop() {
   if (Serial.available() > 0) { // If data is available to read,
     temp1 = Serial.readStringUntil(',');
     temp2 = Serial.readStringUntil('\n');
-   
+
     //when all the points are drawn
     if (temp1 == NULL || temp2 == NULL) {
       leadScrew -> release();
@@ -326,6 +338,7 @@ void loop() {
       Rstepper.disableOutputs();
       Estepper.disableOutputs();
       delay(1000);  // Delay to allow above message to finish printing to monitor
+      Serial.println("DONE\n");
       resetFunc(); //call reset
     }
     else {
@@ -333,12 +346,14 @@ void loop() {
       angle = temp2.toDouble();
       initializeHeater();
 
+      //send information to Processing
       Serial.print("radii: ");
       Serial.println(radii);  //THIS LINE IS FOR TEST ONLY
       Serial.print("angle: ");
       Serial.println(angle);
       Serial.print("maxScale: ");
       Serial.println(maxScale);
+
       if (waxApplied == 1) {
         moveAndDraw(radii, angle);
         waxApplied = 0;
@@ -350,10 +365,5 @@ void loop() {
       delay(100);   //this is necessary FOR NOW
       Serial.println("ACK\n");
     }
-
   }
-
-
-  //Rstepper.run();  //this works, first accelerates and decellerates
-
 }

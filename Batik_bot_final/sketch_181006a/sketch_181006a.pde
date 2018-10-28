@@ -17,7 +17,7 @@ void setup() {
   //Make sure the COM port is correct
   myPort = new Serial(this, "/dev/cu.usbmodem14601", 9600);
   myPort.bufferUntil('\n');
-  readData("Desktop/Arduino_shit/Batik_bot_final/test2.csv");
+  readData("Desktop/Arduino_shit/Batik_bot_final/test.csv");
   dataList.add(null);
 }
 
@@ -43,6 +43,11 @@ void serialEvent(Serial myPort) {
           myPort.write(dataList.get(counter));        //send a 1
           counter++;
         }
+      }
+      else if(val.equals("DONE")){
+        System.out.println("Job is done. Closing serial connection...");
+         myPort.clear();
+         myPort.stop(); 
       }
       else {            //THIS ELSE STATEMENT IS FOR TEST ONLY
         println(val);

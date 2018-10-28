@@ -18,6 +18,7 @@ void setup() {
   myPort = new Serial(this, "/dev/cu.usbmodem14601", 9600);
   myPort.bufferUntil('\n');
   readData("Desktop/Arduino_shit/Batik_bot_final/test2.csv");
+  dataList.add(null);
 }
 
 void serialEvent(Serial myPort) {

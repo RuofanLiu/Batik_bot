@@ -1,0 +1,11 @@
+current when both motor and heater are working: MOTOR: 1.01A (single coil), 1.26A (double coil), 1.07A (Interleave), 1.01A (PWM)
+WHEN BOTH HEATER AND MOTOR ARE IN DOUBLE COIL MODE, THE CURRENT IS 1.78A (MAX)
+
+current when idle: 0.03A
+
+current with only heater: 0.74A (single coil), 1.3A (double coil), 1.06A (interleave), 0.92A (PWM)
+
+current with only motor: 0.29A (single coil), 0.54A (doubble coil), 0.44 (interleave), 0.32A (PWM)
+
+34C^ - 60C^ (both double coil): 
+3:41PM - 3:48PM 3.71C^/min

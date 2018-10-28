@@ -1,0 +1,3 @@
+When turning table is locked, and twhen lead screw is moving, the total current is 0.5A
+When turning table is tuning for drawing, the current is 0.59A
+When only lead screw is running, the current is 0.44 A, after table is released, the current is 0.19A

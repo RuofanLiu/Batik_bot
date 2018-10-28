@@ -3,11 +3,11 @@
    It controlls the batik bot to draw patterns. The user will design a pattern and download the coordinate csv file from
    https://dev.csdt.rpi.edu/applications/56/run
    This program will read the coordinate csv file and use wax to draw the exact same pattern on a cloth.
+   For temperature control, PID control is not needed as the temperature rise is really slow
    TO DO: 1. Use Hall-effect sensor to check the position of the syringe so that it wont push until the very end (Estepper)
           2. implement the debug mode
-          3. use PID control for the temperature control
    Many thanks to the following people:
-        David Goldschmidt, William Babbit, Ron Eglash, Yudan Liu, Abraham Ferraro, Yuxiang Meng, Chenyu Wu, Paween Pitimanaaree,
+        David Goldschmidt, William Babbit, Mukkai Krishnamoorthy, Ron Eglash, James Davis, Yudan Liu, Abraham Ferraro, Yuxiang Meng, Chenyu Wu, Paween Pitimanaaree,
         for giving me advice and helping me in designing the machine and moving it when needed
 
 */
@@ -278,7 +278,6 @@ void applyWax() {
 */
 void setup() {
   Serial.begin(9600);
-  Serial.println("Program start. Initializing...");
   while (Serial.available() <= 0) {
     Serial.println("ACK\n");   // send COntact to initialize the data transimission
     delay(1000);
@@ -287,12 +286,13 @@ void setup() {
   delay(500); //this is necessary, as the arduino CPU is too slow to read data
   Serial.println("ACK\n");
 
+  Serial.println("Program start. Initializing...");
   //------------------for stepper motor---------------------//
   AFMS.begin(1600);  // set the frequencey to 1.6k Hz
   AFMS_level2.begin(1600);
 
   //read temperature
-  Serial.print("Heating up to melt the batik wax...");
+  Serial.println("Heating up to melt the batik wax...");
   //heat the heating pad up tp 60 degree to melt the wax
   initializeHeater();
   currentTemperature = readTemp();

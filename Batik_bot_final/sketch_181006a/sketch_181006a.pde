@@ -1,6 +1,7 @@
 import processing.serial.*;
 import java.io.*;
 import java.util.*;
+import controlP5.*;
 
 int counter = 0;  //increase by one at each iteration in draw();
 String subtext;
@@ -9,15 +10,34 @@ String val;
 ArrayList<String> dataList = new ArrayList<String>();  //this is a list that stores the data read, and then send it to arduino
 String maxScale;  //this is the variable that determines the scale of the painting, supposed to be type int but is send as type string
 boolean firstContact = false;
-
+ControlP5 cp5;
+DropdownList d1;
+String portName;
 
 
 void setup() {
+  clear();
+  size(480, 320);
+  cp5 = new ControlP5(this);
   //Open the serial port for communication with the Arduino
   //Make sure the COM port is correct
-  myPort = new Serial(this, "/dev/cu.usbmodem14601", 9600);
+  d1 = cp5.addDropdownList("Select Port")
+    .setPosition(16, 100)
+    .setSize(168, 200)
+    .setHeight(210)
+    .setItemHeight(20)
+    .setBarHeight(20)
+    .setColorBackground(color(60))
+    .setColorActive(color(255, 128))
+    ;
+
+  d1.getCaptionLabel().set("PORT"); //set PORT before anything is selected
+
+  portName = Serial.list()[1]; //0 as default
+  myPort = new Serial(this, portName, 9600);
+  //myPort = new Serial(this, "/dev/cu.usbmodem14601", 9600);
   myPort.bufferUntil('\n');
-  readData("Desktop/Arduino_shit/Batik_bot_final/test.csv");
+  readData("Desktop/Arduino_shit/Batik_bot_final/test2.csv");
   dataList.add(null);
 }
 
@@ -37,19 +57,17 @@ void serialEvent(Serial myPort) {
         firstContact = true;
       }
     } else { //if we've already established contact, keep getting and parsing data
-      
+
       if (val.equals("ACK")) {
         if (counter < dataList.size()) {
           myPort.write(dataList.get(counter));        //send a 1
           counter++;
         }
-      }
-      else if(val.equals("DONE")){
+      } else if (val.equals("DONE")) {
         System.out.println("Job is done. Closing serial connection...");
-         myPort.clear();
-         myPort.stop(); 
-      }
-      else {            //THIS ELSE STATEMENT IS FOR TEST ONLY
+        myPort.clear();
+        myPort.stop();
+      } else {            //THIS ELSE STATEMENT IS FOR TEST ONLY
         println(val);
       }
     }
@@ -57,9 +75,26 @@ void serialEvent(Serial myPort) {
 }
 
 void draw() {
-  
+  background(128);
+
+  if (d1.isMouseOver()) {
+    d1.clear(); //Delete all the items
+    for (int i=0; i<Serial.list().length; i++) {
+      d1.addItem(Serial.list()[i], i); //add the items in the list
+    }
+  }
 } 
 
+void controlEvent(ControlEvent theEvent) { //when something in the list is selected
+  myPort.clear(); //delete the port
+  myPort.stop(); //stop the port
+  if (theEvent.isController() && d1.isMouseOver()) {
+    portName = Serial.list()[int(theEvent.getController().getValue())]; //port name is set to the selected port in the dropDownMeny
+    myPort = new Serial(this, portName, 9600); //Create a new connection
+    println("Serial index set to: " + theEvent.getController().getValue());
+    delay(2000);
+  }
+}
 /* The following function will read from a CSV or TXT file */
 void readData(String myFileName) {
 

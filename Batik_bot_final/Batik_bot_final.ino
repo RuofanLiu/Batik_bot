@@ -331,7 +331,7 @@ void loop() {
     temp2 = Serial.readStringUntil('\n');
 
     //when all the points are drawn
-    if (temp1 == NULL || temp2 == NULL) {
+    if (temp1 == "Finished" || temp2 == "Finished") {
       leadScrew -> release();
       syringe -> release();
       myHeater -> release();
@@ -348,6 +348,7 @@ void loop() {
       angle = temp2.toDouble();
       currentTemperature = readTemp();
       if(currentTemperature < meltingPoint){
+        Serial.println("Temperature lower than melting point. Reheating...");
         initializeHeater();
       }
 

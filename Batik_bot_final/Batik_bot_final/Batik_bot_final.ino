@@ -3,9 +3,9 @@
    It controlls the batik bot to draw patterns. The user will design a pattern and download the coordinate csv file from
    https://dev.csdt.rpi.edu/applications/56/run
    This program will read the coordinate csv file and use wax to draw the exact same pattern on a cloth.
+   For temperature control, PID control is not needed as the temperature rise is really slow
    TO DO: 1. Use Hall-effect sensor to check the position of the syringe so that it wont push until the very end (Estepper)
           2. implement the debug mode
-          3. use PID control for the temperature control
    Many thanks to the following people:
         David Goldschmidt, William Babbit, Mukkai Krishnamoorthy, Ron Eglash, James Davis, Yudan Liu, Abraham Ferraro, Yuxiang Meng, Chenyu Wu, Paween Pitimanaaree,
         for giving me advice and helping me in designing the machine and moving it when needed
@@ -18,6 +18,7 @@
 #include "utility/Adafruit_MS_PWMServoDriver.h"
 #include <avr/pgmspace.h>                     // Store data in flash (program) memory instead of SRAM
 
+#define meltingPoint 35
 //----------------------other variables--------------------//
 int isFirstValue = 0;
 double maxScale; //this variable is used to determine the scale of the painting on the turning table.
@@ -101,7 +102,7 @@ int readTemp() {
 
 //This function enables the heating pad to heat up to 65 degree Celsius
 void initializeHeater() {
-  while (currentTemperature < 35) {
+  while (currentTemperature < meltingPoint) {
     currentTemperature = readTemp();
     myHeater->setSpeed(50);
     myHeater->onestep(FORWARD, DOUBLE);
@@ -269,6 +270,7 @@ void applyWax() {
     Estepper.runSpeedToPosition();
   }
   //release the stepper motor to save the current
+  delay(1000);
   syringe -> release();
   waxApplied = 1;
 }
@@ -292,7 +294,7 @@ void setup() {
   AFMS_level2.begin(1600);
 
   //read temperature
-  Serial.print("Heating up to melt the batik wax...");
+  Serial.println("Heating up to melt the batik wax...");
   //heat the heating pad up tp 60 degree to melt the wax
   initializeHeater();
   currentTemperature = readTemp();
@@ -329,7 +331,7 @@ void loop() {
     temp2 = Serial.readStringUntil('\n');
 
     //when all the points are drawn
-    if (temp1 == NULL || temp2 == NULL) {
+    if (temp1 == "Finished" || temp2 == "Finished") {
       leadScrew -> release();
       syringe -> release();
       myHeater -> release();
@@ -344,7 +346,11 @@ void loop() {
     else {
       radii = temp1.toDouble();
       angle = temp2.toDouble();
-      initializeHeater();
+      currentTemperature = readTemp();
+      if(currentTemperature < meltingPoint){
+        Serial.println("Temperature lower than melting point. Reheating...");
+        initializeHeater();
+      }
 
       //send information to Processing
       Serial.print("radii: ");
@@ -362,7 +368,7 @@ void loop() {
         applyWax();
         pointReached = 0;
       }
-      delay(100);   //this is necessary FOR NOW
+      delay(100);
       Serial.println("ACK\n");
     }
   }

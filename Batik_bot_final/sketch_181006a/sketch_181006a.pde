@@ -38,6 +38,7 @@ void setup() {
     .setColorBackground(color(60))
     .setColorActive(color(255, 128))
     ;
+    
   myTextarea = cp5.addTextarea("txt")
     .setPosition(200, 20)
     .setSize(250, 280)
@@ -48,6 +49,9 @@ void setup() {
     .setColorForeground(color(255, 100));
   ;
 
+  //the setBroadcast(false) and setBroadcast(true) function calls are NECESSARY at tbe 
+  //beginning and the end of all te other calls for mybutton. This solves the problem 
+  //that the bbutton is automatically clicked when the program starts
   mybutton = cp5.addButton("Press")
     .setBroadcast(false)
     .setValue(0)

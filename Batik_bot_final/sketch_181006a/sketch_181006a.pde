@@ -13,7 +13,8 @@ boolean firstContact = false;
 ControlP5 cp5;
 DropdownList d1;
 String portName;
-
+Textarea myTextarea;
+Button mybutton;
 
 void setup() {
   clear();
@@ -30,7 +31,22 @@ void setup() {
     .setColorBackground(color(60))
     .setColorActive(color(255, 128))
     ;
-
+  myTextarea = cp5.addTextarea("txt")
+    .setPosition(200, 20)
+    .setSize(250, 280)
+    .setFont(createFont("arial", 12))
+    .setLineHeight(10)
+    .setColor(color(255))
+    .setColorBackground(color(255, 100))
+    .setColorForeground(color(255, 100));
+  ;
+  
+  cp5.addButton("Select CSV file")
+    .setValue(0)
+    .setPosition(16, 20)
+    .setSize(168, 100)
+    ;
+  
   d1.getCaptionLabel().set("PORT"); //set PORT before anything is selected
 
   portName = Serial.list()[1]; //0 as default
@@ -69,6 +85,8 @@ void serialEvent(Serial myPort) {
         myPort.stop();
       } else {            //THIS ELSE STATEMENT IS FOR TEST ONLY
         println(val);
+        myTextarea.append(val);
+        myTextarea.append("\n");
       }
     }
   }

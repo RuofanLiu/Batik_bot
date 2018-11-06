@@ -18,14 +18,14 @@
 #include <Adafruit_MotorShield.h>
 #include "utility/Adafruit_MS_PWMServoDriver.h"
 #include <AccelStepper.h>
-#define meltingPoint 53
+#define meltingPoint 47
 
 const float voltageRef = 5.000; //Set reference voltage,you need test your IOREF voltage.
 //const float voltageRef = 3.300;
 int HighTemperaturePin = A0;  //Setting pin
 DFRobotHighTemperature PT100 = DFRobotHighTemperature(voltageRef); //Define an PT100 object
 int currentTemperature = 0;
-
+int startTemp = 0;
 
 //
 ////------------------for stepper motor---------------------//
@@ -50,23 +50,34 @@ AccelStepper Estepper(forwardstepE, backwardstepE); // use functions to step  fo
 void initializeHeater() {
   currentTemperature = PT100.readTemperature(HighTemperaturePin);
   int curtemp = currentTemperature;
+  Serial.print("curtemp:  ");
+  Serial.println(currentTemperature);
+  myHeater->onestep(FORWARD, DOUBLE);
   while (currentTemperature < meltingPoint) {
-    if(curtemp > 51){
-      break;
-    }
     currentTemperature = PT100.readTemperature(HighTemperaturePin);  //Get temperature
     Serial.print("temperature:  ");
     Serial.print(currentTemperature);
     Serial.println("  ^C");
-    myHeater->setSpeed(50);
     myHeater->onestep(FORWARD, DOUBLE);
   }
+  //TO DO: try to read the temperature again at this line //not correct, curtemp changes
+  //should always start from 47
   Serial.println("delaying...");
-  long waittime = 300000;
-  long actual = waittime*(53 - curtemp)/(53 - 30);
-  delay(actual);  //5 min
+  //long waittime = 300000; //295000 technically
+  //long actual = waittime*(48 - curtemp)/(48 - 30);
+  
+  curtemp = PT100.readTemperature(HighTemperaturePin);
+  Serial.print("curtemp:  ");
+  Serial.println(curtemp);
+  long actual = (54 - curtemp)*(unsigned long)32 * 1000;  //it takes 31.3 sec on average to raise up 1 degree, and 55 degree Celcius is the point where the wax is perfect for drawing
+  Serial.print("Delay Time: ");
+  Serial.print(actual);
+  Serial.println("ms");
+  delay(actual);  
   Serial.println("delay done");
   myHeater -> release();
+  delay(5000); //cool dowan before drawing
+  startTemp = PT100.readTemperature(HighTemperaturePin);
 }
 
 void setup(void) {
@@ -82,7 +93,7 @@ void loop(void) {
   Serial.print("temperature is:  ");
   Serial.print(currentTemperature);
   Serial.println("  ^C");
-  while (currentTemperature <= 53) {
+  while (currentTemperature < startTemp) {
     Serial.println("Temperature lower than melting point. Reheating...");
     currentTemperature = PT100.readTemperature(HighTemperaturePin);  //Get temperature
     Serial.print("temperature is:  ");
@@ -90,11 +101,11 @@ void loop(void) {
     Serial.println("  ^C");
     myHeater->onestep(FORWARD, DOUBLE);
   }
-  if (currentTemperature > 53) {
+  if (currentTemperature > 46) {
     Serial.println("Not heating");
     myHeater -> release();
   }
-  Estepper.move(60); // Move 2.5 rotations or 0.5cm down
+  Estepper.move(70); // Move 2.5 rotations or 0.5cm down
   // Use non-blocked command in while-loop instead of blocked command
   // because blocked command does not work for some reason...
   Serial.println("Pressing syringe down");
@@ -102,9 +113,10 @@ void loop(void) {
     Estepper.setSpeed(50);
     Estepper.runSpeedToPosition();
   }
+  myMotor -> release();
   //release the stepper motor to save the current
   delay(10000);
-  myMotor -> release();
+  
   delay(1000); //just here to slow down the output so it is easier to read
 
 }

@@ -9,7 +9,6 @@
    Many thanks to the following people:
         David Goldschmidt, William Babbit, Mukkai Krishnamoorthy, Ron Eglash, James Davis, Yudan Liu, Abraham Ferraro, Yuxiang Meng, Chenyu Wu, Paween Pitimanaaree,
         for giving me advice and helping me in designing the machine and moving it when needed
-
 */
 #include<DFRobotHighTemperatureSensor.h>
 #include <AccelStepper.h>                     // V1.30, For running motors simultaneously
@@ -18,7 +17,7 @@
 #include "utility/Adafruit_MS_PWMServoDriver.h"
 #include <avr/pgmspace.h>                     // Store data in flash (program) memory instead of SRAM
 
-#define meltingPoint 35
+#define meltingPoint 52
 //----------------------other variables--------------------//
 int isFirstValue = 0;
 double maxScale; //this variable is used to determine the scale of the painting on the turning table.
@@ -28,6 +27,9 @@ unsigned long center = 0; //this variable stoers the number of steps needed for 
 int currentTemperature = 0;
 int pointReached = 0;   //a boolean variable that indicates whether the arm has reached the designed location
 int waxApplied = 1;   //a boolean variable that indicates whether the was has been applied
+int startTemp = 0;
+int stepToPush = 80;
+int period = 0;
 
 //-------------------for Hall effect sensor----------------//
 const int hallTurningTable = 2;
@@ -99,16 +101,79 @@ AccelStepper Estepper(forwardstepE, backwardstepE); // use functions to step  fo
 int readTemp() {
   return PT100.readTemperature(HighTemperaturePin);
 }
-
-//This function enables the heating pad to heat up to 65 degree Celsius
+/**
+    This function enables the heating pad to heat up to 65 degree Celsius
+*/
 void initializeHeater() {
+  int counter = 0;
+  int previousTemp = 0 ;
+  currentTemperature = PT100.readTemperature(HighTemperaturePin);
+  //previousTemp = currentTemperature;
+  int curtemp = currentTemperature;
+  Serial.print("curtemp:  ");
+  Serial.println(currentTemperature);
+  myHeater->onestep(FORWARD, DOUBLE);
+  
   while (currentTemperature < meltingPoint) {
-    currentTemperature = readTemp();
-    myHeater->setSpeed(50);
+    if(counter == 10000){
+      counter = 0;
+    }
+    if(counter % 2000 == 0){
+      currentTemperature = PT100.readTemperature(HighTemperaturePin);  //Get temperature
+      Serial.print("temperature:  ");
+      Serial.println(currentTemperature);
+    }
+    if(currentTemperature == meltingPoint && (currentTemperature - previousTemp) > 0 && (currentTemperature - previousTemp) <= 1){
+      break;
+    }
+    previousTemp = currentTemperature;
+    counter++;
     myHeater->onestep(FORWARD, DOUBLE);
   }
-  myHeater -> release();
+  //TO DO: try to read the temperature again at this line //not correct, curtemp changes
+  //should always start from 47
+  Serial.println("delaying...");
+  //long waittime = 300000; //295000 technically
+  //long actual = waittime*(48 - curtemp)/(48 - 30);
+  
+  curtemp = PT100.readTemperature(HighTemperaturePin);
+//  Serial.print("curtemp:  ");
+//  Serial.println(curtemp);
+//  long actual = (55 - curtemp)*(unsigned long)32 * 1000;  //it takes 31.3 sec on average to raise up 1 degree, and 55 degree Celcius is the point where the wax is perfect for drawing
+//  Serial.print("Delay Time: ");
+//  Serial.print(actual);
+//  Serial.println("ms");
+//  delay(actual);  
+//  Serial.println("delay done");
+//  delay(45000); //it was 30000 ms
+//  myHeater -> release();
+  unsigned long startTime = 0;
+  unsigned long endTime = 0;
+  int counter1 = 0;
+  startTime = millis();
+  endTime = millis();
+  Serial.println("maintaining temperature for 10 minutes");
+  while(endTime - startTime < 600000){
+    Serial.println(endTime - startTime);
+    if(counter1 % 250 == 0){
+      currentTemperature = PT100.readTemperature(HighTemperaturePin);
+      if(currentTemperature < 53){
+        myHeater->onestep(FORWARD, DOUBLE);
+      }
+      if(currentTemperature > 53){
+        myHeater->release();
+      }
+      if(counter1 ==  250){
+        counter1 = 0;
+      }
+    }
+    endTime = millis();
+    counter1++;
+  }
+  
+  startTemp = PT100.readTemperature(HighTemperaturePin);
 }
+
 
 /**
    This function initialize the position of the lead screw and determines the center of the turning table
@@ -261,7 +326,7 @@ void moveAndDraw(double radii, double angle) {
 void applyWax() {
   waxApplied = 0;
   //Estepper.setSpeed(extruderSpeed);
-  Estepper.move(50); // Move 2.5 rotations or 0.5cm down
+  Estepper.move(stepToPush); // Move 2.5 rotations or 0.5cm down
   // Use non-blocked command in while-loop instead of blocked command
   // because blocked command does not work for some reason...
   Serial.println("Pressing syringe down");
@@ -271,7 +336,16 @@ void applyWax() {
   }
   //release the stepper motor to save the current
   delay(1000);
+//  Estepper.move(-15); // Move 2.5 rotations or 0.5cm down
+//  // Use non-blocked command in while-loop instead of blocked command
+//  // because blocked command does not work for some reason...
+//  Serial.println("Pressing syringe down");
+//  while (Estepper.currentPosition() != Estepper.targetPosition()) {
+//    Estepper.setSpeed(-50);
+//    Estepper.runSpeedToPosition();
+//  }
   syringe -> release();
+  //stepToPush += 15; //the offset of having the Estepper move up
   waxApplied = 1;
 }
 
@@ -293,6 +367,17 @@ void setup() {
   AFMS.begin(1600);  // set the frequencey to 1.6k Hz
   AFMS_level2.begin(1600);
 
+  //initialize three stepper motors
+  Rstepper.setMaxSpeed(1000);
+  Astepper.setMaxSpeed(500);
+  Estepper.setMaxSpeed(250);
+
+//  Serial.println("Initializing turning table...");
+  initializeTable();
+  delay(2000);
+  Serial.println("Initializing lead screw...");
+  initializeScrew();
+  delay(3000);
   //read temperature
   Serial.println("Heating up to melt the batik wax...");
   //heat the heating pad up tp 60 degree to melt the wax
@@ -301,17 +386,6 @@ void setup() {
   Serial.print("Heating up done, current temperature is: ");
   Serial.println(currentTemperature);
   delay(1500);
-  //initialize three stepper motors
-  Rstepper.setMaxSpeed(1000);
-  Astepper.setMaxSpeed(500);
-  Estepper.setMaxSpeed(250);
-
-  Serial.println("Initializing turning table...");
-  initializeTable();
-  delay(2000);
-  Serial.println("Initializing lead screw...");
-  initializeScrew();
-  delay(3000);
   maxScale = val.toDouble();
   Serial.println("All Initialization done.");
 }
@@ -347,11 +421,7 @@ void loop() {
       radii = temp1.toDouble();
       angle = temp2.toDouble();
       currentTemperature = readTemp();
-      if(currentTemperature < meltingPoint){
-        Serial.println("Temperature lower than melting point. Reheating...");
-        initializeHeater();
-      }
-
+      
       //send information to Processing
       Serial.print("radii: ");
       Serial.println(radii);  //THIS LINE IS FOR TEST ONLY
@@ -361,11 +431,29 @@ void loop() {
       Serial.println(maxScale);
 
       if (waxApplied == 1) {
+        Serial.println("moving to position");
         moveAndDraw(radii, angle);
         waxApplied = 0;
       }
       if (pointReached == 1) {
+          if(currentTemperature < 52) {    //startTemp - 2 should be 54 degree
+            while(currentTemperature < 52){
+              Serial.println("Temperature lower than melting point. Reheating...");
+              currentTemperature = readTemp();  //Get temperature
+              Serial.print("temperature is:  ");
+              Serial.println(currentTemperature);
+              myHeater->onestep(FORWARD, DOUBLE);
+            }
+        }
         applyWax();
+//        Serial.println("cooling down");
+//        currentTemperature = readTemp();  //Get temperature
+//        if(currentTemperature >= 50) {  //set the current temperature to 1 degree lower than the melting point to prevent the wax from dripping
+//          myHeater -> release();
+//          while(currentTemperature > (startTemp - 2) - 1){
+//              currentTemperature = readTemp();
+//          }
+//        }
         pointReached = 0;
       }
       delay(100);

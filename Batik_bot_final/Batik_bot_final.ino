@@ -4,6 +4,7 @@
    https://dev.csdt.rpi.edu/applications/56/run
    This program will read the coordinate csv file and use wax to draw the exact same pattern on a cloth.
    For temperature control, PID control is not needed as the temperature rise is really slow
+   ***When using it, please make sure that there is no air in the syringe, or the wax will drop because of gravity
    TO DO: 1. Use Hall-effect sensor to check the position of the syringe so that it wont push until the very end (Estepper)
           2. implement the debug mode
    Many thanks to the following people:
@@ -17,7 +18,7 @@
 #include "utility/Adafruit_MS_PWMServoDriver.h"
 #include <avr/pgmspace.h>                     // Store data in flash (program) memory instead of SRAM
 
-#define meltingPoint 52
+#define meltingPoint 48
 //----------------------other variables--------------------//
 int isFirstValue = 0;
 double maxScale; //this variable is used to determine the scale of the painting on the turning table.
@@ -28,19 +29,20 @@ int currentTemperature = 0;
 int pointReached = 0;   //a boolean variable that indicates whether the arm has reached the designed location
 int waxApplied = 1;   //a boolean variable that indicates whether the was has been applied
 int startTemp = 0;
-int stepToPush = 80;
+int stepToPush = 50;
 int period = 0;
 
 //-------------------for Hall effect sensor----------------//
 const int hallTurningTable = 2;
 const int hallLeadScrewRight = 3;
 const int hallLeadScrewLeft = 4;
-const int hallLSyringe = 5;
+const int Switch = 5;
 int hallStateTT = 0;
 int hallStateLSright = 0;
 int hallStateLSleft = 0;
 int hallStateS = 0;
 
+int on = 0; //for the 4 leg button
 //-----------------for Temperature sensor------------------//
 const float voltageRef = 5.000; //Set reference voltage,you need test your IOREF voltage.
 //const float voltageRef = 3.300;
@@ -113,8 +115,13 @@ void initializeHeater() {
   Serial.print("curtemp:  ");
   Serial.println(currentTemperature);
   myHeater->onestep(FORWARD, DOUBLE);
-  
+  on = digitalRead(Switch);
+  Serial.print("CURERENT SWITCH STATUS: ");
+  Serial.println(on);
   while (currentTemperature < meltingPoint) {
+    if((on = digitalRead(Switch)) == LOW){
+      break;
+    }
     if(counter == 10000){
       counter = 0;
     }
@@ -130,48 +137,35 @@ void initializeHeater() {
     counter++;
     myHeater->onestep(FORWARD, DOUBLE);
   }
-  //TO DO: try to read the temperature again at this line //not correct, curtemp changes
-  //should always start from 47
+
   Serial.println("delaying...");
-  //long waittime = 300000; //295000 technically
-  //long actual = waittime*(48 - curtemp)/(48 - 30);
-  
-  curtemp = PT100.readTemperature(HighTemperaturePin);
-//  Serial.print("curtemp:  ");
-//  Serial.println(curtemp);
-//  long actual = (55 - curtemp)*(unsigned long)32 * 1000;  //it takes 31.3 sec on average to raise up 1 degree, and 55 degree Celcius is the point where the wax is perfect for drawing
-//  Serial.print("Delay Time: ");
-//  Serial.print(actual);
-//  Serial.println("ms");
-//  delay(actual);  
-//  Serial.println("delay done");
-//  delay(45000); //it was 30000 ms
-//  myHeater -> release();
-  unsigned long startTime = 0;
-  unsigned long endTime = 0;
-  int counter1 = 0;
-  startTime = millis();
-  endTime = millis();
-  Serial.println("maintaining temperature for 10 minutes");
-  while(endTime - startTime < 600000){
-    Serial.println(endTime - startTime);
-    if(counter1 % 250 == 0){
-      currentTemperature = PT100.readTemperature(HighTemperaturePin);
-      if(currentTemperature < 53){
-        myHeater->onestep(FORWARD, DOUBLE);
-      }
-      if(currentTemperature > 53){
-        myHeater->release();
-      }
-      if(counter1 ==  250){
-        counter1 = 0;
-      }
+  counter = 0;
+  while((on = digitalRead(Switch)) != LOW){
+    //currentTemperature = PT100.readTemperature(HighTemperaturePin);
+    if(counter == 10000){
+      counter = 0;
     }
-    endTime = millis();
-    counter1++;
+    if(counter % 1000 == 0){
+      currentTemperature = PT100.readTemperature(HighTemperaturePin);  //Get temperature
+      Serial.print("Delaying, current temperature is:  ");
+      Serial.println(currentTemperature);
+    }
+    if(currentTemperature > 54){  
+      myHeater -> release();
+    }
+    else{
+      myHeater->onestep(FORWARD, DOUBLE);
+    }
+    counter++;
   }
-  
+  myHeater->release();
   startTemp = PT100.readTemperature(HighTemperaturePin);
+  Serial.println("Switch signal received");
+  Estepper.move(100); //when the wax turn into liquid, its volumn shrinks
+  while (Estepper.currentPosition() != Estepper.targetPosition()) {
+    Estepper.setSpeed(50);
+    Estepper.runSpeedToPosition();
+  }
 }
 
 
@@ -311,7 +305,7 @@ void moveAndDraw(double radii, double angle) {
 
     Astepper.runSpeedToPosition();
   }
-  delay(1500);
+  delay(2000);
   pointReached = 1;
 
   //release the stepper motor to save the current
@@ -336,14 +330,6 @@ void applyWax() {
   }
   //release the stepper motor to save the current
   delay(1000);
-//  Estepper.move(-15); // Move 2.5 rotations or 0.5cm down
-//  // Use non-blocked command in while-loop instead of blocked command
-//  // because blocked command does not work for some reason...
-//  Serial.println("Pressing syringe down");
-//  while (Estepper.currentPosition() != Estepper.targetPosition()) {
-//    Estepper.setSpeed(-50);
-//    Estepper.runSpeedToPosition();
-//  }
   syringe -> release();
   //stepToPush += 15; //the offset of having the Estepper move up
   waxApplied = 1;
@@ -366,21 +352,22 @@ void setup() {
   //------------------for stepper motor---------------------//
   AFMS.begin(1600);  // set the frequencey to 1.6k Hz
   AFMS_level2.begin(1600);
-
+  pinMode(Switch, INPUT);
   //initialize three stepper motors
   Rstepper.setMaxSpeed(1000);
   Astepper.setMaxSpeed(500);
   Estepper.setMaxSpeed(250);
 
-//  Serial.println("Initializing turning table...");
+  Serial.println("Initializing turning table...");
   initializeTable();
   delay(2000);
   Serial.println("Initializing lead screw...");
   initializeScrew();
-  delay(3000);
+//  delay(3000);
   //read temperature
   Serial.println("Heating up to melt the batik wax...");
   //heat the heating pad up tp 60 degree to melt the wax
+  
   initializeHeater();
   currentTemperature = readTemp();
   Serial.print("Heating up done, current temperature is: ");
@@ -436,24 +423,20 @@ void loop() {
         waxApplied = 0;
       }
       if (pointReached == 1) {
-          if(currentTemperature < 52) {    //startTemp - 2 should be 54 degree
+          if(currentTemperature < 52) {    
             while(currentTemperature < 52){
               Serial.println("Temperature lower than melting point. Reheating...");
               currentTemperature = readTemp();  //Get temperature
               Serial.print("temperature is:  ");
               Serial.println(currentTemperature);
               myHeater->onestep(FORWARD, DOUBLE);
+              on = digitalRead(Switch);
+              if(on == LOW){
+                break;
+              }
             }
         }
         applyWax();
-//        Serial.println("cooling down");
-//        currentTemperature = readTemp();  //Get temperature
-//        if(currentTemperature >= 50) {  //set the current temperature to 1 degree lower than the melting point to prevent the wax from dripping
-//          myHeater -> release();
-//          while(currentTemperature > (startTemp - 2) - 1){
-//              currentTemperature = readTemp();
-//          }
-//        }
         pointReached = 0;
       }
       delay(100);
